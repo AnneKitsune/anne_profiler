@@ -1,0 +1,17 @@
+.{
+    .name = .anne_profiler,
+    .version = "1.0.0",
+    .minimum_zig_version = "0.15.1",
+    .dependencies = .{
+        .anne_benchmark = .{
+            .hash = "anne_benchmark-1.3.0-DXcAMpsqAABuxYs72i_NZgsoXga6nDi9z9O6aIyRovly",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        "LICENSE",
+        "README.md",
+    },
+}
