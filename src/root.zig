@@ -133,6 +133,61 @@ pub const Profiler = struct {
     }
 };
 
+// c functions
+export fn profiler_init() ?*anyopaque {
+    const prof = std.heap.c_allocator.create(Profiler) catch return null;
+    prof.* = Profiler.empty;
+    return prof;
+}
+
+export fn profiler_deinit(prof: *anyopaque) void {
+    var profiler: *Profiler = @ptrCast(@alignCast(prof));
+    profiler.deinit(std.heap.c_allocator);
+}
+
+export fn profiler_scope_start(prof: *anyopaque, name: [*c]const u8) ?*anyopaque {
+    var profiler: *Profiler = @ptrCast(@alignCast(prof));
+    const name_slice = name[0..std.mem.indexOfSentinel(u8, 0, name)];
+
+    const ret = std.heap.c_allocator.create(ProfileScope) catch return null;
+    ret.* = profiler.startScope(name_slice);
+    return ret;
+}
+
+export fn profiler_scope_end(prof: *anyopaque, scope: *anyopaque) void {
+    var profiler: *Profiler = @ptrCast(@alignCast(prof));
+    const scope2: *ProfileScope = @ptrCast(@alignCast(scope));
+    profiler.endScope(std.heap.c_allocator, scope2.*);
+}
+
+/// Saves the profile as a tsv file in the given path relative to the current directory.
+/// # Errors
+/// - 0: Ok
+/// - 1: Failed to create file
+/// - 2: Failed to write to file
+export fn profiler_save(prof: *anyopaque, path: [*c]const u8) c_int {
+    var profiler: *Profiler = @ptrCast(@alignCast(prof));
+
+    var buf: [4096]u8 = undefined;
+
+    const path_slice = path[0..std.mem.indexOfSentinel(u8, 0, path)];
+    var file = std.fs.cwd().createFile(path_slice, .{}) catch return 1;
+    defer file.close();
+
+    var writer = file.writer(&buf);
+
+    profiler.save(&writer.interface) catch return 2;
+
+    return 0;
+}
+
+test "c fns" {
+    const prof = profiler_init().?;
+    const scope = profiler_scope_start(prof, "test_scope").?;
+    profiler_scope_end(prof, scope);
+    try std.testing.expectEqual(0, profiler_save(prof, "test.tsv"));
+}
+
 test "profiler" {
     var profiler = Profiler{};
     defer profiler.deinit(std.testing.allocator);
